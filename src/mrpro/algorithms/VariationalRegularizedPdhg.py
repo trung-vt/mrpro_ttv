@@ -96,7 +96,7 @@ class VariationalRegularizedPdhg:
         data_term = 0.5 * L2NormSquared(target=measurement.data)
         (pdhg_output,) = pdhg(
             f=ProximableFunctionalSeparableSum(
-                data_term, **self.get_other_l1_terms(regularization_weight, measurement.data.ndim)
+                data_term, **self.get_l1_terms(regularization_weight)
             ),
             g=None,
             operator=self.get_operator_matrix(acquisition_operator, initial_image.data.shape),
@@ -107,9 +107,8 @@ class VariationalRegularizedPdhg:
         return self.process_pdhg_output(pdhg_output)
 
     @abstractmethod
-    def get_other_l1_terms(
-            self, regularization_weight: Any, ndim: int
-    ) -> Sequence[L1NormViewAsReal]:
+    @classmethod
+    def get_l1_terms(cls, regularization_weight: Any) -> Sequence[L1NormViewAsReal]:
         """Get the other L1 terms for the variational regularisation functional sum."""
 
     @abstractmethod

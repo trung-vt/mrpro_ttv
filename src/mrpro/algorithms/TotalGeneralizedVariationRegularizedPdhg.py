@@ -10,7 +10,6 @@ import torch
 from mrpro.algorithms.VariationalRegularizedPdhg import VariationalRegularizedPdhg
 from mrpro.operators import FiniteDifferenceOp, LinearOperator, LinearOperatorMatrix, SymmetrizedGradientOp
 from mrpro.operators.functionals import L1NormViewAsReal
-from mrpro.utils import unsqueeze_right
 
 
 class TotalGeneralizedVariationRegularizedPdhg(VariationalRegularizedPdhg):
@@ -46,10 +45,9 @@ class TotalGeneralizedVariationRegularizedPdhg(VariationalRegularizedPdhg):
     def process_pdhg_output(self, pdhg_output):
         return pdhg_output[0]
 
-    def get_other_l1_terms(
-        self,
-        regularization_weight: Sequence[float] | Sequence[Sequence[float]] | Sequence[Sequence[torch.Tensor]],
-        ndim: int,
+    @classmethod
+    def get_l1_terms(
+        cls, regularization_weight: Sequence[float] | Sequence[Sequence[float]] | Sequence[Sequence[torch.Tensor]]
     ) -> tuple[L1NormViewAsReal, L1NormViewAsReal]:
         """Get the gradient term and the symmetrized gradient term for the TGV regularisation functional sum.
 
@@ -65,13 +63,13 @@ class TotalGeneralizedVariationRegularizedPdhg(VariationalRegularizedPdhg):
             The gradient term and the symmetrized gradient term.
         """
         grad_weight, sym_grad_weight = regularization_weight
-        grad_term = L1NormViewAsReal(weight=unsqueeze_right(grad_weight, ndim))
-        sym_grad_term = L1NormViewAsReal(weight=unsqueeze_right(sym_grad_weight, ndim))
+        grad_term = L1NormViewAsReal(weight=grad_weight)
+        sym_grad_term = L1NormViewAsReal(weight=sym_grad_weight)
         return (grad_term, sym_grad_term)
 
     def get_operator_matrix(
         self, acquisition_operator: LinearOperator | LinearOperatorMatrix, image_shape: Sequence[int]
-    ) -> LinearOperatorMatrix:
+    ) -> TgvOperatorMatrix:
         """Get the operator matrix for the TGV PDHG operator.
 
         Parameters
@@ -83,23 +81,39 @@ class TotalGeneralizedVariationRegularizedPdhg(VariationalRegularizedPdhg):
 
         Returns
         -------
-        LinearOperator
+        TgvOperatorMatrix
             The operator matrix for the TGV PDHG operator.
-            The matrix has the form
-            :math:`\begin{pmatrix} A \\ \nabla_i \\ \\mathcal{E}_i \\end{pmatrix}`
-            where :math:`A` is the acquisition operator,
-            :math:`\nabla_i` is the finite difference operator
-            applied to :math:`x` along different dimensions :math:`i`,
-            and :math:`\\mathcal{E}_i` is the symmetrized gradient operator applied to :math:`v` along
-            the same dimensions :math:`i`.
         """
-        v_shape = (len(self.regularization_dim), *image_shape)
+        return TgvOperatorMatrix(self.regularization_dim, acquisition_operator, image_shape)
 
-        return LinearOperatorMatrix(
+
+class TgvOperatorMatrix(LinearOperatorMatrix):
+    """Operator matrix for the TGV PDHG operator.
+
+    This operator matrix combines the data term, gradient term, and symmetrized gradient term.
+
+    The matrix has the form
+    :math:`\begin{pmatrix} A \\ \nabla_i \\ \\mathcal{E}_i \\end{pmatrix}`
+    where :math:`A` is the acquisition operator,
+    :math:`\nabla_i` is the finite difference operator
+    applied to :math:`x` along different dimensions :math:`i`,
+    and :math:`\\mathcal{E}_i` is the symmetrized gradient operator applied to :math:`v` along
+    the same dimensions :math:`i`.
+    """
+
+    def __init__(
+            self,
+            regularization_dim: Sequence[int],
+            acquisition_operator: LinearOperator | LinearOperatorMatrix,
+            image_shape: Sequence[int]
+    ):
+        """Initialize the TGV operator matrix."""
+        v_shape = (len(regularization_dim), *image_shape)
+        super().__init__(
             (
                 (DataTermOperatorMatrixRow(acquisition_operator, v_shape),),
-                (GradientTermOperatorMatrixRow(self.regularization_dim, mode='forward'),),
-                (SymmetrizedGradientTermOperatorMatrixRow(image_shape, self.regularization_dim, mode='backward'),),
+                (GradientTermOperatorMatrixRow(regularization_dim, mode='forward'),),
+                (SymmetrizedGradientTermOperatorMatrixRow(image_shape, regularization_dim, mode='backward'),),
             )
         )
 

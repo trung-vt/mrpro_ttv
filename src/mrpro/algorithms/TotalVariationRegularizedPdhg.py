@@ -10,7 +10,6 @@ import torch
 from mrpro.algorithms.VariationalRegularizedPdhg import VariationalRegularizedPdhg
 from mrpro.operators import FiniteDifferenceOp, LinearOperator, LinearOperatorMatrix
 from mrpro.operators.functionals import L1NormViewAsReal
-from mrpro.utils import unsqueeze_right
 
 
 class TotalVariationRegularizedPdhg(VariationalRegularizedPdhg):
@@ -23,10 +22,9 @@ class TotalVariationRegularizedPdhg(VariationalRegularizedPdhg):
     different dimensions :math:`i`.
     """
 
-    def get_other_l1_terms(
-        self,
-        regularization_weight: Sequence[float] | Sequence[torch.Tensor],
-        ndim: int,
+    @classmethod
+    def get_l1_terms(
+        cls, regularization_weight: Sequence[float] | Sequence[torch.Tensor]
     ) -> Tuple[L1NormViewAsReal,]:
         """Get the gradient term for the TV regularisation functional sum.
 
@@ -41,7 +39,7 @@ class TotalVariationRegularizedPdhg(VariationalRegularizedPdhg):
         -------
             The gradient term.
         """
-        grad_term = L1NormViewAsReal(weight=unsqueeze_right(regularization_weight, ndim))
+        grad_term = L1NormViewAsReal(weight=regularization_weight)
         return (grad_term,)
 
     def get_operator_matrix(
