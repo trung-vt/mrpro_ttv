@@ -42,7 +42,8 @@ class TotalGeneralizedVariationRegularizedPdhg(VariationalRegularizedPdhg):
             dim=0,
         )
 
-    def process_pdhg_output(self, pdhg_output):
+    @classmethod
+    def process_pdhg_output(cls, pdhg_output: torch.Tensor) -> torch.Tensor:
         return pdhg_output[0]
 
     @classmethod
@@ -68,7 +69,10 @@ class TotalGeneralizedVariationRegularizedPdhg(VariationalRegularizedPdhg):
         return (grad_term, sym_grad_term)
 
     def get_operator_matrix(
-        self, acquisition_operator: LinearOperator | LinearOperatorMatrix, image_shape: Sequence[int]
+        self,
+        acquisition_operator: LinearOperator | LinearOperatorMatrix,
+        regularization_dim: Sequence[int],
+        image_shape: Sequence[int]
     ) -> TgvOperatorMatrix:
         """Get the operator matrix for the TGV PDHG operator.
 
@@ -76,6 +80,8 @@ class TotalGeneralizedVariationRegularizedPdhg(VariationalRegularizedPdhg):
         ----------
         acquisition_operator
             The acquisition operator.
+        regularization_dim
+            The dimensions along which the TGV regularization is applied.
         image_shape
             The shape of the image data to reconstruct.
 
@@ -84,7 +90,7 @@ class TotalGeneralizedVariationRegularizedPdhg(VariationalRegularizedPdhg):
         TgvOperatorMatrix
             The operator matrix for the TGV PDHG operator.
         """
-        return TgvOperatorMatrix(self.regularization_dim, acquisition_operator, image_shape)
+        return TgvOperatorMatrix(regularization_dim, acquisition_operator, image_shape)
 
 
 class TgvOperatorMatrix(LinearOperatorMatrix):

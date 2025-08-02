@@ -48,6 +48,7 @@ def check_regularization_dim(
     regularization_weight: float | Sequence[float] | Sequence[torch.Tensor],
     ndim: int
 ):
+    """Check and normalize the regularization dimensions."""
     if len(regularization_dim) != len(regularization_weight):
         raise ValueError('Regularization dimensions and weights must have the same length')
     regularization_dim = tuple(normalize_index(ndim, idx) for idx in regularization_dim)
@@ -60,6 +61,7 @@ def prepare_regularization_weight(
         regularization_weight: float | Sequence[float] | Sequence[torch.Tensor],
         regularization_dim: Sequence[int]
 ):
+    """Prepare the regularization weight for the TGV denoising."""
     return torch.as_tensor(
         regularization_weight
         if isinstance(regularization_weight, Sequence)
@@ -119,8 +121,12 @@ def total_generalized_variation_denoising(
     regularization_dim = check_regularization_dim(
         regularization_dim, regularization_weight_grad_term_, img_tensor.ndim
     )
+    initial_value = torch.cat(
+        (initial_image.unsqueeze(0), initial_image.new_zeros((len(regularization_dim), *initial_image.shape))),
+        dim=0,
+    )
 
-    (img_tensor,) = pdhg(
+    (tgv_pdhg_output,) = pdhg(
         f=ProximableFunctionalSeparableSum(
             L2NormSquared(target=img_tensor),
             *TotalGeneralizedVariationRegularizedPdhg.get_l1_terms(
@@ -133,8 +139,9 @@ def total_generalized_variation_denoising(
             acquisition_operator=IdentityOp(),
             image_shape=initial_image.data.shape
         ),
-        initial_values=(initial_image,),
+        initial_values=(initial_value,),
         max_iterations=max_iterations,
         tolerance=tolerance,
     )
+    img_tensor = TotalGeneralizedVariationRegularizedPdhg.process_pdhg_output(tgv_pdhg_output)
     return img_tensor if isinstance(idata, torch.Tensor) else IData(img_tensor, idata.header)

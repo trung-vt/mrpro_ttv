@@ -43,7 +43,10 @@ class TotalVariationRegularizedPdhg(VariationalRegularizedPdhg):
         return (grad_term,)
 
     def get_operator_matrix(
-            self, acquisition_operator: LinearOperator | LinearOperatorMatrix, image_shape=None
+            self,
+            acquisition_operator: LinearOperator | LinearOperatorMatrix,
+            regularization_dim: Sequence[int],
+            image_shape=None
     ) -> LinearOperatorMatrix:
         """Get the operator matrix for the TV regularisation functional sum.
 
@@ -59,5 +62,5 @@ class TotalVariationRegularizedPdhg(VariationalRegularizedPdhg):
             and :math:`\nabla_i` is the finite difference operator applied to :math:`x` along
             different dimensions :math:`i`.
         """
-        nabla_op = FiniteDifferenceOp(dim=self.regularization_dim, mode='forward')
+        nabla_op = FiniteDifferenceOp(dim=regularization_dim, mode='forward')
         return LinearOperatorMatrix(((acquisition_operator,), (nabla_op,)))

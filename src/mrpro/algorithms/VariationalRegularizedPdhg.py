@@ -9,7 +9,6 @@ from typing import Any
 import torch
 
 from mrpro.algorithms.optimizers.pdhg import pdhg
-from mrpro.data.Dataclass import Dataclass
 from mrpro.operators import LinearOperator, LinearOperatorMatrix, ProximableFunctionalSeparableSum
 from mrpro.operators.functionals import L1NormViewAsReal, L2NormSquared
 from mrpro.utils import normalize_index
@@ -62,8 +61,9 @@ class VariationalRegularizedPdhg:
             raise ValueError('Repeated values are not allowed in regularization_dim')
         self.regularization_dim = regularization_dim
 
-    def get_regularization_dim(self, measurement: torch.Tensor | Dataclass) -> Sequence[int]:
-        regularization_dim = tuple(normalize_index(measurement.ndim, idx) for idx in self.regularization_dim)
+    def get_regularization_dim(self, ndim: int) -> Sequence[int]:
+        """Get the regularization dimensions normalized to the given number of dimensions."""
+        regularization_dim = tuple(normalize_index(ndim, idx) for idx in self.regularization_dim)
         if len(regularization_dim) != len(set(regularization_dim)):
             raise ValueError('Repeated values are not allowed in regularization_dim')
         return regularization_dim
@@ -82,16 +82,18 @@ class VariationalRegularizedPdhg:
         """
         return initial_image
 
-    def process_pdhg_output(self, pdhg_output: torch.Tensor | Dataclass) -> torch.Tensor | Dataclass:
+    @classmethod
+    def process_pdhg_output(cls, pdhg_output: torch.Tensor) -> torch.Tensor:
+        """Extract the reconstructed image from the PDHG output."""
         return pdhg_output
 
     def __call__(
         self,
         acquisition_operator: LinearOperator,
         regularization_weight: Any,
-        measurement: torch.Tensor | Dataclass,
-        initial_image: torch.Tensor | Dataclass,
-    ) -> torch.Tensor | Dataclass:
+        measurement: torch.Tensor,
+        initial_image: torch.Tensor,
+    ) -> torch.Tensor:
         """Call the reconstruction."""
         data_term = 0.5 * L2NormSquared(target=measurement.data)
         (pdhg_output,) = pdhg(
@@ -99,7 +101,11 @@ class VariationalRegularizedPdhg:
                 data_term, **self.get_l1_terms(regularization_weight)
             ),
             g=None,
-            operator=self.get_operator_matrix(acquisition_operator, initial_image.data.shape),
+            operator=self.get_operator_matrix(
+                acquisition_operator,
+                self.get_regularization_dim(measurement.ndim),
+                initial_image.data.shape
+            ),
             initial_values=(self.get_initial_value(initial_image),),
             max_iterations=self.max_iterations,
             tolerance=self.tolerance,
@@ -113,6 +119,8 @@ class VariationalRegularizedPdhg:
 
     @abstractmethod
     def get_operator_matrix(
-            self, acquisition_operator: LinearOperator | LinearOperatorMatrix, image_shape: Sequence[int]
+            self, acquisition_operator: LinearOperator | LinearOperatorMatrix,
+            regularization_dim: Sequence[int],
+            image_shape: Sequence[int]
     ) -> LinearOperatorMatrix:
         """Get the operator matrix for the variational regularisation."""
