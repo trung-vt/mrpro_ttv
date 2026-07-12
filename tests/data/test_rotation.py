@@ -537,7 +537,7 @@ def _test_stats(error: torch.Tensor, mean_max: float, rms_max: float) -> None:
     assert torch.all(rms < rms_max)
 
 
-@pytest.mark.parametrize('seq_tuple', permutations('xyz'), ids=str)
+@pytest.mark.parametrize('seq_tuple', tuple(permutations('xyz')), ids=str)
 @pytest.mark.parametrize('intrinsic', [False, True])
 def test_as_euler_asymmetric_axes(seq_tuple: Sequence[str], intrinsic: bool) -> None:
     rnd = RandomGenerator(0)
@@ -557,7 +557,7 @@ def test_as_euler_asymmetric_axes(seq_tuple: Sequence[str], intrinsic: bool) -> 
     _test_stats(angles_quat - angles, 1e-15, 1e-14)
 
 
-@pytest.mark.parametrize('seq_tuple', permutations('xyz'), ids=str)
+@pytest.mark.parametrize('seq_tuple', tuple(permutations('xyz')), ids=str)
 @pytest.mark.parametrize('intrinsic', [False, True])
 def test_as_euler_symmetric_axes(seq_tuple: Sequence[str], intrinsic: bool) -> None:
     rnd = RandomGenerator(0)
@@ -578,7 +578,7 @@ def test_as_euler_symmetric_axes(seq_tuple: Sequence[str], intrinsic: bool) -> N
     _test_stats(angles_quat - angles, 1e-16, 1e-14)
 
 
-@pytest.mark.parametrize('seq_tuple', permutations('xyz'), ids=str)
+@pytest.mark.parametrize('seq_tuple', tuple(permutations('xyz')), ids=str)
 @pytest.mark.parametrize('intrinsic', [False, True])
 def test_as_euler_degenerate_asymmetric_axes(seq_tuple: Sequence[str], intrinsic: bool) -> None:
     # Since we cannot check for angle equality, we check for rotation matrix
@@ -600,7 +600,7 @@ def test_as_euler_degenerate_asymmetric_axes(seq_tuple: Sequence[str], intrinsic
     torch.testing.assert_close(mat_expected, mat_estimated)
 
 
-@pytest.mark.parametrize('seq_tuple', permutations('xyz'), ids=str)
+@pytest.mark.parametrize('seq_tuple', tuple(permutations('xyz')), ids=str)
 @pytest.mark.parametrize('intrinsic', [False, True])
 def test_as_euler_degenerate_symmetric_axes(seq_tuple: Sequence[str], intrinsic: bool) -> None:
     # Since we cannot check for angle equality, we check for rotation matrix
@@ -1298,6 +1298,15 @@ def test_mean(theta: float) -> None:
     assert math.isclose(r.mean().magnitude(), 0.0, abs_tol=1e-7)
 
 
+def test_mean_single() -> None:
+    """Test mean with a single rotation"""
+    r = Rotation.from_rotvec([0, 0, 0])
+    mean = r.mean()
+    assert r.mean() == mean
+    assert r is not mean
+    assert mean.single
+
+
 @pytest.mark.parametrize('theta', [0.0, np.pi / 8, np.pi / 4, np.pi / 3, np.pi / 2])
 def test_weighted_mean(theta: float) -> None:
     """Test that doubling a weight is equivalent to including a rotation twice."""
@@ -1407,17 +1416,20 @@ def test_axis_order_zyx() -> None:
 
 def test_from_to_directions() -> None:
     """Test that from_directions and as_directions are inverse operations"""
-    one = torch.ones(1, 2, 3, 4)
-
     # must be a rotation
-    b1 = SpatialDimension(one * (0.8146), one * (0.4707), one * (-0.3388))
-    b2 = SpatialDimension(one * (-0.4432), one * (0.8820), one * (0.1599))
-    b3 = SpatialDimension(one * (-0.3741), one * (-0.0199), one * (-0.9272))
+    b1 = SpatialDimension(*(torch.as_tensor(v) for v in ([-0.1235, -0.1230], [-0.1411, -0.1639], [0.9823, 0.9788])))
+    b2 = SpatialDimension(*(torch.as_tensor(v) for v in ([-0.0186, -0.0186], [0.99, 0.9865], [0.1399, 0.1629])))
+    b3 = SpatialDimension(*(torch.as_tensor(v) for v in ([0.9922, 0.9922], [0.0010, -0.0018], [0.1249, 0.1245])))
 
     r = Rotation.from_directions(b1, b2, b3)
     torch.testing.assert_close(b1.zyx, r.as_directions()[0].zyx, atol=1e-4, rtol=0)
-    torch.testing.assert_close(b2.zyx, r.as_directions()[1].zyx, atol=1e-4, rtol=0)
-    torch.testing.assert_close(b3.zyx, r.as_directions()[2].zyx, atol=1e-4, rtol=0)
+    # b2 and b3 need broadcasting because of dim=1 along z
+    torch.testing.assert_close(torch.broadcast_to(b2.z, (2,)), r.as_directions()[1].z, atol=1e-4, rtol=0)
+    torch.testing.assert_close(b2.y, r.as_directions()[1].y, atol=1e-4, rtol=0)
+    torch.testing.assert_close(b2.x, r.as_directions()[1].x, atol=1e-4, rtol=0)
+    torch.testing.assert_close(torch.broadcast_to(b3.z, (2,)), r.as_directions()[2].z, atol=1e-4, rtol=0)
+    torch.testing.assert_close(b3.y, r.as_directions()[2].y, atol=1e-4, rtol=0)
+    torch.testing.assert_close(b3.x, r.as_directions()[2].x, atol=1e-4, rtol=0)
 
 
 def test_as_directions() -> None:

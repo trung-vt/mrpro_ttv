@@ -11,9 +11,9 @@ from mrpro.utils.pad_or_crop import pad_or_crop
 from mrpro.utils.split_idx import split_idx
 from mrpro.utils.sliding_window import sliding_window
 from mrpro.utils.summarize import summarize_object, summarize_values
-from mrpro.utils.reshape import broadcast_right, broadcasted_rearrange, unsqueeze_left, unsqueeze_right, reduce_view, reshape_broadcasted, ravel_multi_index, unsqueeze_tensors_left, unsqueeze_tensors_right, unsqueeze_at, unsqueeze_tensors_at, broadcasted_concatenate
+from mrpro.utils.reshape import broadcast_right, broadcasted_rearrange, unsqueeze_left, unsqueeze_right, reduce_view, reshape_broadcasted, ravel_multi_index, unsqueeze_tensors_left, unsqueeze_tensors_right, unsqueeze_at, unsqueeze_tensors_at, broadcasted_concatenate, normalize_index, normalize_indices
 from mrpro.utils.TensorAttributeMixin import TensorAttributeMixin
-from mrpro.utils.interpolate import interpolate, apply_lowres
+from mrpro.utils.interpolate import interp, interpolate, apply_lowres
 from mrpro.utils.RandomGenerator import RandomGenerator
 
 __all__ = [
@@ -25,7 +25,10 @@ __all__ = [
     "broadcasted_concatenate",
     "broadcasted_rearrange",
     "fill_range_",
+    "interp",
     "interpolate",
+    "normalize_index",
+    "normalize_indices",
     "pad_or_crop",
     "ravel_multi_index",
     "reduce_repeat",
